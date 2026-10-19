@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Controla un samurái 3D con los movimientos de tu cuerpo, manos y rostro desde la cámara.">
+  <title>Samurái · Estudio de movimiento</title><link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><img src="/favicon.svg" alt="" width="40" height="40"><div><h1>Samurái</h1><span>Estudio de movimiento</span></div></div>
+    <div class="top-actions"><button id="dance-open" class="button dance-entry" disabled>Modo baile ↗</button><span id="state-pill" class="status-pill">Cámara apagada</span><button id="camera-button" class="button primary" disabled>Encender cámara</button></div>
+  </header>
+  <main>
+    <section id="dance-panel" class="dance-panel" aria-label="Demo de baile" hidden>
+      <div class="dance-topline"><span class="dance-eyebrow">DANCE LAB / DEMO 01</span><button id="dance-close" class="text-button">Volver al estudio</button></div>
+      <div class="dance-intro"><div><h2>Entra en el ritmo.</h2><p>Una rutina de 35 segundos. Copia al guía como en un espejo.</p></div><div class="dance-actions"><button id="dance-preview" class="button secondary">Ver coreografía</button><button id="dance-play" class="button primary">Jugar con cámara</button></div></div>
+      <div class="dance-scoreboard"><div><span>PUNTOS</span><strong id="dance-score">00000</strong></div><div><span>COMBO</span><strong id="dance-combo">0×</strong></div><div><span>RESTANTE</span><strong id="dance-time">0:35</strong></div><div class="dance-track"><span>PULSO SAMURÁI</span><p>Música original · 112 BPM</p><label><input type="checkbox" id="dance-sound" checked> Sonido</label><span id="dance-audio-note"></span></div></div>
+      <progress id="dance-progress" max="100" value="0" aria-label="Progreso de la coreografía"></progress>
+      <div class="dance-cues"><div class="dance-current"><div id="dance-current-icon" class="dance-icon"></div><div><span>AHORA</span><h3 id="dance-move">Abre los brazos</h3><p id="dance-tip">Brazos a los lados</p></div><div id="dance-beats" class="dance-beats" aria-hidden="true"><i></i><i></i><i></i><i></i></div></div><div><span class="dance-next-label">DESPUÉS</span><div id="dance-next" class="dance-next"></div></div></div>
+      <div class="dance-live"><div><strong id="dance-feedback" aria-live="polite">Tu primera pista</strong><p id="dance-status">Pulso Samurái · música original · 112 BPM</p></div><div class="dance-actions"><button id="dance-start-live" class="button primary" aria-label="Jugar con cámara" hidden>Jugar ahora</button><button id="dance-pause" class="button secondary" hidden>Pausar</button></div></div>
+      <div id="dance-results" class="dance-results" hidden><span id="dance-result-title">Tu resultado</span><h3 id="dance-result-score"></h3><p id="dance-stars" class="dance-stars"></p><p id="dance-result-detail"></p></div>
+      <p class="dance-help">Muestra hombros, caderas y rodillas. Se comparan posturas amplias; los dedos y la posición exacta de los pies no dan puntos. Si pierdes el encuadre, la ronda te espera.</p>
+    </section>
+    <div class="workspace">
+      <section class="panel camera-panel" aria-label="Cámara y puntos de seguimiento">
+        <div class="panel-heading"><h2><span class="step">01</span> Tu movimiento</h2><span id="pose-rate" class="tiny">SIN SEÑAL</span></div>
+        <div class="camera-stage" id="camera-stage">
+          <video id="video" playsinline muted></video><canvas id="landmarks"></canvas>
+          <div class="empty-camera" id="camera-empty"><div class="camera-icon" aria-hidden="true">◉</div><h3>Todo empieza con tu movimiento</h3><p>Coloca la cámara donde se vean tu cabeza y ambos pies.</p><button id="demo-button" class="button secondary">Probar demo 3D</button></div>
+          <div id="framing-guide" class="framing-guide" hidden><span>cabeza</span><i></i><span>pies</span></div>
+          <div id="camera-caption" class="stage-caption" hidden>La imagen completa, sin recortar</div>
+        </div>
+        <div class="panel-footer"><span id="framing-message">La cámara y la detección se procesan en este navegador.</span><button id="camera-zoom-reset" class="text-button" hidden>Reducir zoom</button></div>
+      </section>
+      <section class="panel avatar-panel" aria-label="Robot 3D">
+        <div class="panel-heading"><h2><span class="step">02</span> Tu samurái</h2><div class="view-buttons"><button id="front-button" aria-label="Ver el robot de frente" aria-pressed="true">Frente</button><button id="back-button" aria-label="Ver la espalda del robot" aria-pressed="false">Espalda</button><button id="face-button" aria-label="Acercar el rostro del robot" aria-pressed="false">Rostro</button><button id="hands-button" aria-label="Acercar una mano del robot" aria-pressed="false">Mano</button></div></div>
+        <div class="avatar-stage" id="avatar"><div class="avatar-loading" id="avatar-loading">Preparando el samurái…</div><div id="dance-labels" class="dance-labels" hidden><span>GUÍA</span><span>TÚ</span></div><div id="dance-countdown" class="dance-countdown" hidden></div><div class="avatar-watermark" aria-hidden="true">GURREN<br><span>SAMURAI</span></div></div>
+        <div class="panel-footer"><span>Arrastra para girar · Rueda para acercar</span><button id="center-button" class="text-button" disabled>Centrar postura</button></div>
+      </section>
+    </div>
+    <div class="readouts" aria-label="Estado del seguimiento">
+      <div class="readout"><span>Cuerpo</span><strong id="body-count">— <small>/ 33</small></strong><div class="meter"><i id="body-meter"></i></div><p id="hips-state">Caderas · esperando cámara</p><p id="person-state">Una persona por sesión</p><p id="jump-state">Saltos · esperando cámara</p></div>
+      <div class="readout"><span>Pierna izquierda</span><strong id="left-count">— <small>/ 5</small></strong><div class="meter gold"><i id="left-meter"></i></div></div>
+      <div class="readout"><span>Pierna derecha</span><strong id="right-count">— <small>/ 5</small></strong><div class="meter gold"><i id="right-meter"></i></div></div>
+      <div class="readout"><span>Manos</span><strong id="hand-count">— <small>/ 42</small></strong><p id="hands-state">Esperando cámara</p></div>
+      <div class="readout"><span>Rostro</span><strong id="face-count">— <small>/ 478</small></strong><p id="expression">Esperando cámara</p></div>
+    </div>
+    <section class="settings" aria-label="Controles de seguimiento">
+      <div class="control"><label for="camera-select">Cámara</label><select id="camera-select"><option value="">Predeterminada</option></select></div>
+      <div class="control"><label for="quality-select">Seguimiento</label><select id="quality-select"><option value="dance">Baile y saltos · Auto</option><option value="economy">Equipo lento · solo cuerpo</option><option value="lite">Rápido</option><option value="full">Equilibrado</option><option value="heavy">Mayor precisión</option></select></div>
+      <div class="control range-control"><label for="smoothing">Suavizado <output id="smooth-value">25%</output></label><input id="smoothing" type="range" min="0" max="80" value="25"></div>
+      <div class="control"><label for="sensitivity">Sensibilidad</label><select id="sensitivity"><option value="normal">Normal</option><option value="high">Alta</option></select></div>
+      <div class="control range-control"><label for="expression-strength">Gestos <output id="expression-value">150%</output></label><input id="expression-strength" type="range" min="75" max="220" value="150"></div>
+      <div class="toggles"><label><input id="points-toggle" type="checkbox" checked> Puntos</label><label><input id="mesh-toggle" type="checkbox"> Malla facial</label><label><input id="skeleton-toggle" type="checkbox"> Esqueleto</label><label><input id="wire-toggle" type="checkbox"> Malla 3D</label></div>
+      <button id="reset-button" class="button secondary" disabled>Recuperar seguimiento</button>
+      <button id="diagnostics-button" class="text-button">Copiar diagnóstico</button>
+    </section>
+    <p id="motion-performance" class="motion-performance">Baile y saltos · ajuste automático</p>
+    <textarea id="performance-report" aria-label="Diagnóstico de rendimiento" rows="8" readonly hidden></textarea>
+    <p class="help-line"><span id="hint">Para mover las piernas, las rodillas y los tobillos deben estar dentro de la imagen.</span><button id="floor-calibrate" class="text-button" disabled>Calibrar suelo</button><button id="face-calibrate" class="text-button" disabled>Calibrar rostro</button></p>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  </main>
+  <footer class="app-footer"><span>33 puntos de cuerpo · 42 de manos · 478 de rostro</span><span>Cuerpo completo · movimiento 3D</span></footer>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body></html>

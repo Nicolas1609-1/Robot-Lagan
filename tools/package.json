@@ -1,0 +1,24 @@
+{
+  "name": "samurai-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.mjs",
+    "build": "vite build --config vite.config.mjs",
+    "preview": "vite preview --config vite.config.mjs",
+    "start": "node serve.mjs",
+    "prepare": "node prepare-assets.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:browser": "node check-browser.mjs && node check-details.mjs && node check-grips.mjs && node check-rig.mjs && node check-arms.mjs",
+    "benchmark": "node benchmark.mjs"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.1.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "vite": "8.3.3",
+    "@playwright/test": "1.58.2"
+  }
+}

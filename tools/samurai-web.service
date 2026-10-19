@@ -1,0 +1,16 @@
+[Unit]
+Description=Samurai - web de movimiento
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/robot/tools
+ExecStart=%h/.local/share/robot-node/current/bin/node %h/Documents/robot/tools/serve.mjs
+Environment=SAMURAI_PORT=8090
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target
