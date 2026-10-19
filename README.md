@@ -4,6 +4,10 @@
 
 La aplicación estima el cuerpo, las manos y el rostro en el navegador y transforma esas medidas en movimientos de un samurái articulado. También incluye **Pulso Samurái**, una demo de baile con guía, música original y puntuación.
 
+![Estudio de Robot-Lagan con el samurái animado, vistas e indicadores de seguimiento](tools/docs/images/estudio.png)
+
+*El estudio en modo demo: permite explorar el movimiento del robot sin encender la cámara. Los indicadores no representan detecciones de una persona en esta captura.*
+
 - [Abrir el estudio](https://lagan.nicolas16.life/)
 - [Probar la demo de baile](https://lagan.nicolas16.life/?modo=baile)
 - [Ver el repositorio](https://github.com/Nicolas1609-1/Robot-Lagan)
@@ -147,6 +151,10 @@ Cambiar de Lite a Full o Heavy no añade más puntos: los tres modelos corporale
 
 Abre **Modo baile** o entra con `?modo=baile`. La rutina **Pulso Samurái** dura aproximadamente **35 segundos: 64 pulsos a 112 BPM**, con ocho tipos de movimiento distribuidos en 16 secuencias.
 
+![Ensayo de Pulso Samurái con el guía, el movimiento actual, los siguientes pasos y el marcador sin puntos](tools/docs/images/baile.png)
+
+*Vista de ensayo sin cámara, pausada para la captura. Los pictogramas anticipan los próximos pasos; la puntuación permanece en cero hasta jugar con seguimiento.*
+
 ### Cómo jugar
 
 1. Usa **Ver coreografía** para observar al guía sin encender la cámara. Este ensayo no suma puntos.
@@ -208,11 +216,21 @@ Una cámara común no mide directamente la profundidad como un sensor dedicado. 
 
 Una muñeca es hija del antebrazo, y este es hijo del brazo. Esa relación conserva la conexión de las piezas al moverlas. Las placas de armadura siguen sus articulaciones; la flexión del torso se reparte entre abdomen y pecho. Las placas laterales de la cadera acompañan los muslos.
 
+| Armadura del robot | Esqueleto de animación |
+| --- | --- |
+| ![Samurái 3D en una postura programada de movimiento](tools/docs/images/robot.png) | ![La misma postura mostrando huesos de torso, extremidades y dedos](tools/docs/images/esqueleto.png) |
+
+*La misma postura con y sin huesos visibles. Las líneas muestran la jerarquía que mueve la malla; son controles del robot, no puntos adicionales detectados por la cámara.*
+
 ### Brazos, manos y contacto entre palmas
 
 Los brazos separan movimiento de hombro, flexión de codo, giro del antebrazo y flexión de muñeca. El codo funciona como bisagra con un máximo de 155°. La muñeca tiene límites combinados de flexión y desviación lateral, además de velocidad acotada.
 
 Las manos mantienen proporciones fijas. Los dedos largos usan bisagras y el pulgar tiene articulaciones para oponerse sobre la palma. La clasificación de un puño puede ayudar a cerrar falanges que la propia mano oculta. Las asignaciones ambiguas o duplicadas no deben mover ambas manos con una misma detección.
+
+<img src="tools/docs/images/mano.png" alt="Detalle de la mano mecánica articulada y su conexión con la muñeca" width="640">
+
+*Vista cercana de una mano durante una animación programada. Permite estudiar falanges, pulgar y unión con el antebrazo sin depender de la precisión del detector.*
 
 Al acercar las manos, el robot ajusta el alcance mediante **cinemática inversa**: busca una posición compatible con dos segmentos de longitud fija. Para la postura de oración exige también evidencia de dedos hacia arriba o palmas detalladas enfrentadas. Compensa las proporciones del robot y vuelve gradualmente al movimiento normal al separar las manos. Sin detalle de manos, la orientación de oración es una aproximación corporal.
 
@@ -298,6 +316,12 @@ Robot-Lagan/
 | [tools/serve.mjs](tools/serve.mjs) | Servidor estático de producción y endpoint de salud. |
 
 `tools/node_modules/`, `tools/dist/` y `tools/.cache/` contienen dependencias, compilaciones y resultados temporales. `public/vendor/` y `public/models/` se generan durante la preparación. No se editan como código fuente ni se suben a Git.
+
+Las capturas de esta guía están en `tools/docs/images/`: forman parte de la documentación y no se incluyen en la compilación de la web. Se generan con la aplicación real, sin activar una cámara física. Para actualizarlas, inicia Vite en 5181 y ejecuta desde otra terminal en `tools/`, con Chrome instalado:
+
+```bash
+node capture-docs.mjs http://127.0.0.1:5181/
+```
 
 Las copias antiguas que puedan existir localmente en `tools/referencia-python.zip` y `tools/pendiente-de-limpieza/` no se publican en el repositorio y no son necesarias para ejecutar la web.
 
