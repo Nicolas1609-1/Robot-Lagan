@@ -1,405 +1,479 @@
 # Robot-Lagan · Samurái 3D
 
-Web local con cuerpo completo, manos articuladas y gestos faciales.
+**De una cámara web a un robot que sigue tu movimiento.** Robot-Lagan es un proyecto educativo de visión por computador, animación 3D y juego de baile desarrollado por [Nicolas1609-1](https://github.com/Nicolas1609-1).
 
-Los modelos de MediaPipe y el SDK se preparan con `npm run prepare` desde
-`tools` y no se guardan en Git. Las dependencias, compilaciones, cachés y copias
-antiguas también quedan fuera del repositorio. El código, el robot y las pruebas
-se conservan en `src`, `public` y `tools`.
+La aplicación estima el cuerpo, las manos y el rostro en el navegador y transforma esas medidas en movimientos de un samurái articulado. También incluye **Pulso Samurái**, una demo de baile con guía, música original y puntuación.
 
-## Esqueleto del robot
+- [Abrir el estudio](https://lagan.nicolas16.life/)
+- [Probar la demo de baile](https://lagan.nicolas16.life/?modo=baile)
+- [Ver el repositorio](https://github.com/Nicolas1609-1/Robot-Lagan)
 
-El samurái tiene **64 huesos** enlazados en una jerarquía: pelvis, columna,
-pecho, cuello, cabeza, clavículas, brazos, muñecas, falanges, piernas y pies.
-La malla está ligada al esqueleto mediante pesos de vértices (SkinnedMesh).
-Las placas de armadura siguen su articulación sin estirarse; el núcleo del torso
-reparte su flexión entre abdomen y pecho. Una muñeca es hija del antebrazo y un
-antebrazo es hijo del brazo, por lo que sus posiciones permanecen conectadas.
+La versión actual usa una **cámara web y MediaPipe**. No necesita Kinect, sensores de profundidad ni un programa de Python en ejecución. Los modelos de detección son modelos preentrenados de MediaPipe; el proyecto implementa su integración, el seguimiento, la animación y el juego.
 
-Activa **Esqueleto** para ver los huesos y sus articulaciones sobre el robot.
-Funciona con la cámara y con **Probar demo 3D**. Los 64 huesos son controles del
-modelo: el detector corporal sigue proporcionando 33 puntos medidos.
+## Contenido
 
-Las manos tienen palma compacta, dorso rojo, collar de muñeca y tres falanges
-por dedo. Los dedos largos usan bisagras con un eje fijo, evitando que las placas
-se inviertan al cerrar el puño. El pulgar tiene articulaciones propias para
-oponerse sobre la palma. Las hombreras giran menos que el brazo, el casco tiene
-una media luna curva y la armadura de brazos y muslos lleva bordes redondeados.
+1. [Qué puedes hacer](#qué-puedes-hacer)
+2. [Instalar y ejecutar](#instalar-y-ejecutar)
+3. [Primera sesión con cámara](#primera-sesión-con-cámara)
+4. [Controles y perfiles](#controles-y-perfiles)
+5. [Demo de baile](#demo-de-baile)
+6. [Cómo funciona](#cómo-funciona)
+7. [Esqueleto y movimiento del robot](#esqueleto-y-movimiento-del-robot)
+8. [Rendimiento y CPU/GPU](#rendimiento-y-cpugpu)
+9. [Organización del código](#organización-del-código)
+10. [Aprender y ampliar el proyecto](#aprender-y-ampliar-el-proyecto)
+11. [Pruebas](#pruebas)
+12. [Compilar y desplegar](#compilar-y-desplegar)
+13. [Problemas frecuentes](#problemas-frecuentes)
+14. [Privacidad, límites y referencias](#privacidad-límites-y-referencias)
 
-Los brazos separan cuatro movimientos: giro del hombro, flexión del codo,
-pronación del antebrazo y flexión de muñeca. El codo funciona como una bisagra
-con un máximo de 155 grados; la muñeca mecánica admite 92 grados de flexión y 60
-de desviación lateral, con límites combinados y velocidad acotada. Girar la palma
-rota el antebrazo, sin retorcer la muñeca.
-La rueda del codo queda en el brazo y el collar de muñeca en el antebrazo.
-Las hombreras acompañan la elevación del brazo sin copiar su torsión.
-Las placas laterales de la cadera acompañan a cada muslo por separado. El plano
-de la rodilla usa la dirección del pie observado para permitir girar la pierna
-de lado sin anular su flexión. Mantiene una bisagra y límites de tobillo; la
-respuesta de muslos, espinillas y pies aumenta con la velocidad medida.
-El balanceo de pelvis admite hasta 46 grados y la inclinación se reparte entre
-cadera y columna. La demo muestra rodillas altas, pasos y flexiones amplias.
+## Qué puedes hacer
 
-El eje de rodilla se transporta desde reposo para conservar la flexión al dar
-patadas por encima de la cadera. El tobillo se resuelve en el marco de la
-espinilla y mantiene su orientación local si se ocultan los puntos del pie;
-admite extender el empeine al arrodillarse. El apoyo del robot considera también
-las rodilleras para evitar que se hundan en el suelo.
-Cuando ambas muñecas medidas se acercan, el alcance se ajusta por posición con
-dos segmentos de longitud fija. La oración requiere además dedos hacia arriba
-en la pose o dos palmas detalladas recientes enfrentadas. Se orientan las palmas
-y los codos para compensar las proporciones del torso. Sin detalles, la
-orientación de oración es una aproximación de la pose, no nuevos puntos medidos.
-Al separar las manos se vuelve gradualmente a las direcciones observadas.
-
-La demo construye la orientación de cada mano a partir del antebrazo ya animado,
-incluida la transición desde reposo. Los dedos acompañan al brazo al levantarlo;
-la demo alterna palma abierta, puño y giro de mano, con flexión suave de muñeca.
-src/arms.js contiene estos movimientos y las restricciones de las articulaciones.
-
-## Abrir
-
-### Demo de baile
-
-Pulsa **Modo baile** o abre `https://lagan.nicolas16.life/?modo=baile`.
-**Ver coreografía** permite ensayar sin encender la cámara y no suma puntos.
-**Jugar con cámara** espera una postura estable, hace una cuenta atrás y empieza
-una rutina original de 64 ritmos: unos 35 segundos a 112 BPM. La base musical
-se genera con Web Audio en el equipo; no se descargan canciones.
-
-El guía y tu samurái se dibujan con un único renderer y comparten la geometría.
-El juego usa sólo Pose Lite y conserva la selección CPU/GPU por medición;
-pausa manos y rostro para dedicar capacidad al cuerpo. Al volver al estudio
-restaura el perfil elegido. La comparación usa los instantes de captura,
-un margen de reacción y los ángulos de brazos, inclinación y rodillas.
-Las sentadillas dan mayor peso a las rodillas. Los dedos y la posición exacta
-de los pies no puntúan. Un cuerpo parcial reduce la cobertura y los puntos;
-sin medidas válidas no hay puntos inventados. Si se pierde el cuerpo durante
-un segundo se pausan reloj y música, conservando el progreso. El regreso exige
-varias muestras estables y otra cuenta atrás. Una pestaña oculta pausa la ronda.
-
-La primera demo es una prueba local de seguimiento, sin cuentas, clasificación
-en línea ni grabación de cámara. No es un producto oficial de Just Dance.
-`node tools/check-dance.mjs http://127.0.0.1:5181/` comprueba una ronda completa
-con cámara simulada, ensayo sin puntos, pérdida y regreso, resultado, salida
-al estudio y diseño móvil. Las pruebas unitarias incluyen medidas a 5 muestras/s.
-
-### Estudio de movimiento
-
-Haz doble clic en **iniciar_web.cmd**. Si la web ya está encendida, se abre esa
-misma página. Dirección: **http://127.0.0.1:5173/**.
-
-Pulsa **Encender cámara** y permite el acceso. Usa **Probar demo 3D** para ver
-manos, piernas y gestos sin cámara. Chrome o Edge actualizado.
-
-La cámara usa su imagen nativa, sin recorte del navegador. La guía de cabeza y
-pies se ajusta al área real del video, también cuando hay bandas alrededor.
-Si la cámara expone un control de zoom con el permiso existente, se reduce al
-mínimo al iniciar; **Reducir zoom** permite repetirlo. No se solicitan permisos
-adicionales de movimiento de cámara. Si todavía no caben cabeza y pies, hay que
-alejar o reubicar la cámara: reducir el tamaño de la vista no recupera lo que
-queda fuera del sensor.
-
-## Publicar en el servidor
-
-Para publicar en el servidor de Nicolás, ejecuta `bash tools/deploy_linux.sh`.
-Compila los archivos de producción y reinicia el servicio de usuario
-`samurai-web.service`, que escucha únicamente en `127.0.0.1:8090`.
-En Cloudflare Tunnel, la ruta `lagan.nicolas16.life` usa
-**Service URL: `http://localhost:8090`**, sin ruta adicional. La dirección pública
-es `https://lagan.nicolas16.life`. El túnel entrega HTTPS al navegador; el origen
-local usa HTTP. No es necesario abrir el puerto en el router.
-Si la instalación indica que falta persistencia, ejecuta
-`sudo loginctl enable-linger nicolas` en el servidor para iniciar también al
-reiniciar y sin una sesión abierta.
-
-Consulta el estado con `systemctl --user status samurai-web` y los mensajes con
-`journalctl --user -u samurai-web -n 40`. Los archivos de producción están en
-`tools/dist`; el servicio sólo publica esa carpeta.
-Los modelos y el SDK se guardan en la caché del navegador durante un día;
-`ASSET_VERSION` en `public/vision.worker.js` invalida esa caché al cambiarlos.
-El cuerpo inicia primero y los detalles de manos y rostro se cargan después.
-Cuando WebGL permite usar la GPU, cada detector compara CPU y GPU con los mismos
-seis fotogramas, descartando los dos primeros de calentamiento. Conserva la opción
-más rápida (si son similares, prefiere GPU para liberar CPU) y cierra el otro
-modelo. Las comparaciones de cuerpo, manos y rostro se hacen por turnos. Si GPU
-no inicia, falla o se bloquea, se usa CPU. El pie de los controles muestra el
-procesador del cuerpo y **Copiar diagnóstico** incluye ambos tiempos y el
-procesador elegido para manos y rostro. No se transfieren imágenes al servidor.
-Si la primera comparación no encontró manos o rostro, se repite una sola vez
-cuando aparecen, también por turnos. El diagnóstico registra los recursos
-declarados por el navegador; la RAM es una aproximación. Con 2 GB o menos
-de RAM declarada, Auto conserva sólo cuerpo para evitar cargar los otros modelos.
-
-## Movimiento rápido
-
-El modo **Baile y saltos · Auto** está seleccionado inicialmente. Empieza con
-el modelo corporal ligero, que conserva los 33 puntos. Pueden trabajar el cuerpo
-y un detalle a la vez; en una CPU de hasta dos núcleos disponibles se turnan. El cuerpo
-tiene prioridad y los detalles se espacian según el tiempo de respuesta.
-Después de seis búsquedas sin manos o rostro, esos detectores buscan con menos
-frecuencia; al encontrarlos retoman su cadencia normal. El cuerpo sigue activo.
-La carga de manos y rostro es escalonada para evitar iniciar tres modelos juntos.
-Auto mide primero sólo el cuerpo: habilita detalles con suficiente capacidad,
-los espacia cuatro veces cuando se acumula carga y los descarga ante respuesta
-o dibujo muy lentos. Así conserva cuerpo, piernas, caderas y saltos. La pantalla
-indica **Auto prioriza cuerpo** cuando pausa dedos y gestos. No oscila recargando
-modelos: cambiar de perfil o encender la cámara de nuevo repite la medición.
-**Rápido** solicita también manos y rostro de forma explícita. Cambiar entre
-perfiles que usan Lite conserva el detector ya cargado y su selección CPU/GPU.
-Los indicadores distinguen **FPS 3D**, **muestras corporales por segundo** y
-tiempo de respuesta: el dibujo interpola entre las medidas, sin prometer una tasa fija.
-
-El dibujo se limita a 60 FPS, ajusta su resolución ante carga sostenida y reduce
-el trabajo al dejar la cámara apagada. Una pestaña oculta pausa el procesamiento.
-La adaptación mide tiempo transcurrido: con 5 FPS no espera decenas de dibujos
-para bajar la resolución y el límite de dibujo a 30 FPS.
-Con carga extrema puede bajar hasta 37,5% de resolución 3D. Los modos que
-priorizan cuerpo usan iluminación Lambert más sencilla; equipos con pocos
-recursos empiezan sin antialias y con menor resolución. El samurái comparte
-índices entre vértices idénticos: 54.143 vértices de dibujo en lugar de 77.364,
-con las mismas superficies, colores, pesos y 64 huesos.
-El encuadre del samurái usa envolventes de sus huesos, precalculadas al cargar,
-en vez de volver a transformar todos los vértices de la armadura durante el baile.
-Los puntos de cámara se dibujan por grupos, conservando cuerpo, dedos y rostro.
-
-Si el equipo sigue lento, elige **Equipo lento · solo cuerpo**: conserva los
-33 puntos corporales, piernas, caderas y saltos, descarga los detectores de manos
-y rostro y empieza con dibujo a 30 FPS y menor resolución. Los dedos y gestos
-faciales quedan en pausa; volver a Auto los reactiva. La persona fijada y la
-calibración del suelo se conservan al cambiar entre estos modos.
-**Copiar diagnóstico** comparte tasas, tiempos, CPU/GPU, resolución de cámara,
-versión de la página y navegador. No copia imágenes, coordenadas ni identificadores
-de cámara. El cálculo ocurre en el dispositivo de cada visitante.
-
-El inicio confirma dos observaciones del mismo cuerpo, incluso si llegan con
-650 ms de separación. Con hombros o caderas de confianza moderada necesita tres
-observaciones consistentes. No reinicia la confirmación por tardar más de 400 ms.
-La continuidad de confianza se adapta a la cadencia de muestras y dura como
-máximo un segundo; sólo cuenta puntos realmente medidos, presentes y dentro de
-la imagen. La referencia de ropa conserva su cromaticidad inicial al cambiar
-la exposición. Los límites de posición, escala y torso mezclado siguen activos.
-La caducidad de huesos y caderas cuenta la ausencia desde la recepción de las
-medidas, evitando que el tiempo de cálculo descarte una postura recién recibida.
-**Sensibilidad Alta** ajusta también los umbrales de MediaPipe, sin apagar la
-cámara ni perder la persona fijada o los saltos; antes sólo cambiaba el filtro
-del robot. Un cuerpo demasiado pequeño o desenfocado puede seguir sin detección.
-`node tools/check-detection.mjs` prueba el detector real con una foto oficial y
-variantes de escala, brillo y desenfoque; `npm test` comprueba continuidad y rechazo
-de otras personas. Estas pruebas no sustituyen medir los equipos afectados.
-
-Usa imágenes más pequeñas para
-el detector corporal, evita procesar fotogramas repetidos y no acumula una cola.
-La animación limita la velocidad de giro y desplazamiento, rechaza saltos aislados
-y suaviza entre muestras. Los filtros responden más rápido al aumentar la velocidad
-y comparan medidas consecutivas para no congelar un movimiento rápido continuo.
-No extrapola movimientos al perder fotogramas. Las clavículas acompañan los brazos
-elevados y las rodillas usan bisagras con límites de flexión y plano de giro estable.
-El brazo responde más rápido a golpes coherentes hacia la cámara. Si el antebrazo
-se acorta por escorzo, combina su proyección y el signo de profundidad observado
-con una longitud previamente calibrada. Una reconstrucción breve no se cuenta
-como un punto visible ni sustituye coordenadas 3D inválidas.
-El bloqueo compara medidas compartidas al pasar de torso a cuerpo completo y
-acompaña cambios graduales de distancia sin cambiar de persona.
-Las rodillas flexionan hacia atrás sin invertir la armadura. Las espinilleras son
-más estrechas, las rodilleras se unen al muslo y las botas separan talón y punta.
-El apoyo se calcula con las suelas del modelo, con límites en tobillos y puntas.
-La armadura y las manos se dibujan en una malla enlazada al esqueleto; la prueba
-del modelo completo pasó de 87 a 10 llamadas de dibujo, incluidos rostro y escena.
-
-- Baja **Suavizado** si quieres una respuesta más directa.
-- **Equilibrado** y **Mayor precisión** requieren más procesamiento.
-- Mantén buena luz: el desenfoque al moverte afecta a los puntos.
-- Incluye cabeza y ambos pies, con margen. Los avisos indican qué articulaciones faltan.
-- **Centrar postura** ajusta la referencia; **Recuperar seguimiento** reinicia el cuerpo.
-
-## Caderas, baile y pérdidas de puntos
-
-Al encender la cámara, colócate en el centro un momento. **Persona fijada**
-confirma que el robot mantiene el mismo usuario. Se conserva su posición,
-escala y una referencia temporal del color de la ropa. El detector sigue
-limitado a un cuerpo. El detector corporal recibe siempre la imagen completa para
-conservar un encuadre estable al bailar. Los recortes de detalle se concentran
-alrededor de la persona fijada. Las manos y el rostro
-se comprueban contra ese cuerpo antes de mover el robot. Si otra persona lo
-tapa o el usuario sale, se espera su regreso. **Recuperar seguimiento** permite
-elegir otra persona. Esta continuidad visual no es reconocimiento de identidad.
-Tras una ausencia real de al menos un segundo, el regreso se confirma con tres
-muestras consistentes (cinco si las anclas tienen confianza moderada), manteniendo
-la referencia de ropa inicial. Permite volver en otra posición y distancia sin
-apagar la cámara ni recargar modelos. Recalibra posición y suelo, conserva el
-contador de saltos y descarta detalles de manos o rostro anteriores al regreso.
-El cruce de otro cuerpo no activa esta búsqueda si no hubo una ausencia real.
-`node tools/check-lower-body.mjs http://127.0.0.1:5181/` comprueba el modelo con
-sentadillas, rodilla alta, giro lateral, caderas y pasos a ocho muestras/s. Estas
-son pruebas de movimiento sintético, independientes de la precisión de la cámara.
-`node tools/check-contacts.mjs http://127.0.0.1:5181/` comprueba patadas altas,
-rodillas apoyadas, flexión profunda y palmas juntas con el torso girado, tanto
-con la aproximación corporal como con orientación detallada de manos.
-
-Para saltar, usa una cámara fija, muestra ambas caderas, hombros y pies, y deja los pies quietos
-un momento para tomar el suelo como referencia. **Calibrar suelo** permite tomar
-otra referencia sin perder el contador. Tobillos, talones y puntas aportan referencias
-independientes: perder un tobillo no cancela los pies que todavía se ven.
-El despegue responde antes de confirmar el contador. Dos medidas de elevación,
-o una trayectoria ascendente previa y el vuelo, confirman el salto. Agacharse, ponerse
-de puntillas con las puntas apoyadas, levantar una sola
-pierna o subir los pies sentado no cuentan como salto. **Salto detectado**
-muestra el evento y el contador. El robot se eleva y vuelve al suelo al
-aterrizar; al perder los pies brevemente, conserva la altura y después la
-reduce gradualmente. Deja espacio sobre la cabeza para no salir del encuadre.
-
-Las dos caderas controlan el giro y el balanceo de la pelvis. El torso tiene su
-propio giro: mover los hombros no gira automáticamente todo el robot. La
-inclinación frontal de pelvis se aproxima a partir de la columna. La altura
-sigue las flexiones de piernas y el desplazamiento de ambos pies.
-
-El indicador **Caderas · 2/2 en seguimiento** confirma que hay una medida fiable.
-Si una cadera se oculta brevemente, se conserva su orientación. Los puntos
-inválidos mantienen la última articulación válida y la recuperación es gradual.
-Las longitudes de brazos, piernas y dedos se conservan. Antebrazos y pies usan
-orientaciones continuas al cruzar la dirección de la cámara; las muñecas se
-suavizan respecto al antebrazo para acompañarlo durante cambios rápidos.
-
-Los 33 puntos corporales son los que proporciona el detector; subir o bajar un
-contador no mejora la medición. **Equilibrado** puede dar una postura más precisa,
-con mayor tiempo de procesamiento. Mostrar ambas caderas, rodillas y tobillos
-permite medirlos: las partes ocultas no se pueden reconstruir con certeza.
-
-No hay un número de FPS garantizado: depende de la cámara y del equipo. Los tres
-detectores corren en workers independientes y ajustan su frecuencia al tiempo
-de procesamiento. Si una GPU deja de responder, se intenta recuperar usando CPU.
-
-## Manos y expresiones
-
-Las manos usan los 21 puntos de cada mano y sus coordenadas 3D: giro de palma,
-separación de dedos y tres articulaciones del pulgar. La muñeca limita la flexión
-para impedir que la mano atraviese el antebrazo. El lado se asocia a la muñeca
-corporal y al movimiento anterior, incluso si se cruzan o el detector entrega
-las manos en otro orden. Las proporciones son fijas: los puntos mueven las
-articulaciones sin estirar dedos ni aplastar la palma. Se descartan estimaciones
-degeneradas y saltos aislados de giro; al perder puntos, la mano conserva brevemente
-su postura y vuelve de forma suave al reposo. La lógica está en src/hands.js.
-
-El detector de manos también clasifica **puño cerrado**, **palma abierta**,
-**índice extendido** y **pulgar arriba**. Una clasificación fiable ayuda a cerrar
-las falanges ocultas por el propio puño. Un dedo inválido conserva su último
-estado mientras los demás siguen moviéndose. El pulgar tiene tres direcciones
-propias para oponerse sobre la palma, en lugar de doblarse como un dedo largo.
-
-El lado anatómico de Tasks se conserva para la entrada de cámara sin espejo;
-la imagen se refleja únicamente al mostrarla. Las manos del modelo tienen el
-pulgar del lado correspondiente y distinguen palma y dorso. La posición detallada
-de muñeca ajusta el antebrazo conservando
-su profundidad. Si se pierde la mano, se alternan búsquedas cerca de las muñecas
-con la imagen completa. **Manos** muestra el gesto reconocido o el estado de
-búsqueda, en lugar de afirmar seguimiento por tener sólo puntos corporales.
-
-El modelo local de manos es public/models/gesture.task; reemplaza al detector
-anterior. Véanse el [reconocedor de gestos](https://developers.google.com/edge/mediapipe/solutions/vision/gesture_recognizer/web_js)
-y la [convención de lado de la mano](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/hand_landmark/hand_landmark_tracking_cpu.pbtxt).
-
-**Mano** acerca una mano para revisar los dedos y conserva ese enfoque cuando
-la detección se pierde brevemente. **Rostro** acerca la cabeza.
-Puedes arrastrar para girar la vista y usar la rueda para acercar.
-**Frente** y **Espalda** vuelven a mostrar el robot completo.
-
-El rostro mueve boca, sonrisa o comisuras hacia abajo, labios fruncidos, párpados,
-ojos abiertos y cejas de ambos lados. El control **Gestos** cambia su intensidad.
-Mira de frente, relaja la boca y pulsa **Calibrar rostro**. Para obtener detalles,
-acércate a la cámara; un rostro o una mano de pocos píxeles no permite medir bien
-sus movimientos.
-
-Cuerpo, manos y rostro se procesan por separado. Los puntos disponibles son 33
-corporales, hasta 21 por mano y 478 faciales. No se añaden puntos medidos en partes
-que están fuera de la imagen. Las imágenes de tu cámara se procesan en tu navegador.
-Las manos se asocian con la muestra corporal más cercana en el tiempo, y sus
-rotaciones se filtran en el mismo espacio que las del cuerpo, sin depender de
-un giro de pelvis más reciente.
-
-## Tres carpetas principales
-
-| Carpeta | Contenido |
+| Función | Comportamiento actual |
 | --- | --- |
-| **src/** | Interfaz, seguimiento, robot y estilos |
-| **public/** | Geometría, icono, detector, modelos y motor de visión |
-| **tools/** | Dependencias, configuración, instalación y pruebas |
+| Cuerpo completo | Sigue brazos, torso, pelvis, rodillas y pies cuando están visibles. |
+| Manos articuladas | Interpreta orientación de palma, dedos y pulgar; reconoce gestos como puño y palma abierta. |
+| Rostro | Anima orientación de cabeza, boca, sonrisa, párpados y cejas cuando el detector facial está activo. |
+| Saltos | Calibra el suelo, estima despegue y aterrizaje y mantiene un contador. |
+| Continuidad de una persona | Fija un cuerpo y filtra detalles de otras personas; busca recuperar al usuario tras una ausencia. |
+| Robot con esqueleto | Usa 64 huesos, longitudes constantes y límites articulares. Permite ver el esqueleto y la malla. |
+| Demo sin cámara | Muestra movimientos programados para observar el modelo y sus articulaciones. |
+| Juego de baile | Incluye una rutina original, guía animado, cuenta atrás, puntuación, combo y resultado. |
+| Adaptación al equipo | Compara CPU/GPU y ajusta frecuencia de detección, detalles y resolución de dibujo. |
 
-La versión Python y las exportaciones antiguas se conservan como respaldo en
-tools/referencia-python.zip. El código activo de la web utiliza estas tres carpetas.
-La carpeta tools/pendiente-de-limpieza contiene los archivos antiguos mientras se
-confirma su eliminación. La web no depende de ellos. La geometría base del cuerpo
-está en public/robot.json. src/rig.js construye el esqueleto, la armadura y las
-manos; src/avatar.js maneja la escena, las expresiones y la animación;
-src/arms.js resuelve hombros, codos y muñecas; src/legs.js resuelve las bisagras
-de rodilla; src/hands.js interpreta los puntos
-de dedos y pulgares; src/person.js mantiene la persona seleccionada y filtra
-los detalles; src/jump.js detecta despegue, aterrizaje y pérdidas de pies.
+**Manos y rostro no están activos en todos los modos.** El juego de baile prioriza el cuerpo; el perfil automático también puede pausar los detalles si falta capacidad. Consulta [Controles y perfiles](#controles-y-perfiles).
 
-tools/node_modules son dependencias necesarias, tools/dist contiene la compilación
-y tools/.cache guarda comprobaciones temporales. No hace falta editar esas carpetas.
+## Instalar y ejecutar
 
-## Instalar y comprobar
+### Requisitos
 
-### Ejecutar en Linux por SSH
+- Node.js **22.12 o superior** y npm.
+- Git para clonar el repositorio, o una copia descargada del código.
+- Chrome o Edge actualizado, con WebGL disponible para la escena 3D.
+- Cámara para el seguimiento. Las demos visuales también funcionan sin cámara.
+- Internet durante la instalación inicial para descargar dependencias y modelos.
 
-El proyecto debe estar en la carpeta del servidor, incluidos src, public y tools.
-Con Node.js 22.12 o superior, instala las dependencias desde tools con `npm ci`.
-Después inicia la web desde cualquier carpeta con:
+No se garantiza una cantidad fija de FPS. El resultado depende del equipo, la cámara, la iluminación y el navegador.
 
-~~~bash
-bash /home/nicolas/Documents/robot/tools/iniciar_linux.sh
-~~~
+### Windows
 
-El lanzador también encuentra la instalación de Node del usuario en
-`~/.local/share/robot-node/current/bin`. La web escucha en el puerto 5173 de
-127.0.0.1 del servidor. Reenvía ese puerto por SSH y abre la dirección local
-del túnel para usar la cámara de tu PC.
+Abre PowerShell y ejecuta:
 
-### Instalar y verificar en Windows
-
-Requiere Node.js 22.12 o superior. La primera instalación descarga paquetes y modelos
-oficiales. Después, cámara, modelos y motor se sirven localmente.
-
-~~~powershell
-cd tools
+```powershell
+git clone https://github.com/Nicolas1609-1/Robot-Lagan.git
+cd Robot-Lagan\tools
 npm.cmd ci --ignore-scripts
 npm.cmd run prepare
 npm.cmd run dev -- --open
-~~~
+```
 
-~~~powershell
-cd tools
-npm.cmd test
-npm.cmd run build
-~~~
+Abre **http://127.0.0.1:5173/** y deja esa terminal abierta. Para detener el servidor, pulsa `Ctrl + C` en ella.
 
-Con el servidor abierto y Chrome instalado:
+También puedes hacer doble clic en **iniciar_web.cmd**, en la raíz del proyecto. El lanzador instala las dependencias si faltan, prepara los modelos y abre la web. Requiere tener Node.js instalado. Si reconoce una instancia del proyecto en el puerto 5173, abre esa misma página.
 
-~~~powershell
-cd tools
-npm.cmd run test:browser
-node check-motion.mjs
-~~~
+### Linux
 
-Las pruebas cubren recuperación, piernas, pulgares independientes, orientación de
-palmas, asociación de manos, gestos por lado, giro independiente de pelvis/torso,
-saltos, muestras inválidas y secuencias de baile con oclusiones. La prueba 3D
-comprueba matrices, continuidad de orientación y conexión de muñecas y dedos
-durante 360 fotogramas de movimiento simulado. Las pruebas del esqueleto también
-comprueban pesos de vértices, longitudes constantes, cierre por bisagras y que
-los vértices de los dedos se muevan al girar sus huesos.
-Las fotos de puño, pulgar, índice y manos abiertas también pasan por el detector
-real y el rig. Se comprueba el puño en ambas manos, el espejo, la oposición del
-pulgar y la transformación de muñecas cuando se recorta la búsqueda.
-Las pruebas de navegador usan fotos oficiales en una cámara simulada; no activan
-tu cámara. Sus fotos y vídeos se eliminan al terminar. No necesitan Python.
-Estas comprobaciones no sustituyen una prueba de baile real con tu cámara.
-La prueba de brazos reproduce 20 segundos de la demo y comprueba la bisagra del
-codo, la posición de muñecas, el giro del antebrazo, el seguimiento de la mano
-y la continuidad de orientación. También guarda vistas de palma, puño y espalda.
+```bash
+git clone https://github.com/Nicolas1609-1/Robot-Lagan.git
+cd Robot-Lagan/tools
+npm ci --ignore-scripts
+npm run prepare
+npm run dev
+```
 
-Documentación oficial:
-[Pose](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker/web_js),
-[Hands](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker/web_js),
-[Face](https://developers.google.com/edge/mediapipe/solutions/vision/face_landmarker/web_js).
+Abre **http://127.0.0.1:5173/** en el mismo equipo. Después de preparar la instalación también puedes iniciar con `bash tools/iniciar_linux.sh` desde la raíz.
+
+### Por qué hay que preparar los modelos
+
+`npm run prepare` ejecuta [tools/prepare-assets.mjs](tools/prepare-assets.mjs). Copia el SDK instalado de MediaPipe a `public/vendor/` y descarga los modelos oficiales en `public/models/`:
+
+| Archivo generado | Uso |
+| --- | --- |
+| `pose_lite.task` | Cuerpo, priorizando velocidad. |
+| `pose_full.task` | Cuerpo, perfil equilibrado. |
+| `pose_heavy.task` | Cuerpo, perfil de mayor precisión. |
+| `gesture.task` | Puntos de las manos y clasificación de gestos. |
+| `face.task` | Puntos y expresiones faciales. |
+
+Estas carpetas **no se incluyen en Git**: se reconstruyen con el comando de preparación. No hace falta descargar modelos manualmente ni subirlos al repositorio. `tools/package-lock.json` fija la instalación de dependencias mediante `npm ci`.
+
+El proyecto sirve el SDK y los modelos desde su propio origen. Esto no convierte la aplicación en una PWA ni garantiza que se pueda abrir sin conexión: el servidor de la web debe seguir disponible.
+
+## Primera sesión con cámara
+
+1. Abre el estudio y pulsa **Encender cámara**. Acepta el permiso del navegador y selecciona la cámara correcta si tienes varias.
+2. Coloca una cámara fija, con buena luz. Incluye cabeza y ambos pies, dejando margen a los lados y por encima de la cabeza.
+3. Quédate en el centro unos segundos. **Persona fijada** indica que el seguimiento ha elegido un cuerpo.
+4. Deja ambos pies apoyados hasta ver **Suelo calibrado**. Después prueba levantar brazos, flexionar rodillas y dar pasos.
+5. Usa **Calibrar suelo** si cambias la posición de la cámara. Para probar saltos, mantén visibles hombros, caderas y pies.
+6. Para expresiones, vuelve al estudio, elige **Rápido**, mira de frente con la boca relajada y pulsa **Calibrar rostro** cuando el detector esté listo.
+
+La vista de cámara muestra la imagen completa sin recortarla para llenar el panel. Si la cámara permite ajustar el zoom con el permiso existente, la aplicación intenta reducirlo al mínimo; **Reducir zoom** permite repetirlo. Si no caben los pies, hay que alejar o reubicar la cámara: encoger el panel no amplía lo que captura el sensor.
+
+Al alejarte ganas encuadre, pero manos y rostro ocupan menos píxeles. Para revisar dedos o expresiones conviene acercarse; para bailar conviene mostrar el cuerpo completo.
+
+## Controles y perfiles
+
+### Elegir el seguimiento
+
+| Perfil | Modelo corporal | Manos y rostro | Cuándo usarlo |
+| --- | --- | --- | --- |
+| **Baile y saltos · Auto** | Lite | Se habilitan si la medición de rendimiento lo permite; pueden espaciarse o pausarse. | Primera opción para movimiento general. |
+| **Equipo lento · solo cuerpo** | Lite | En pausa. | Equipos con poca capacidad o respuesta lenta. |
+| **Rápido** | Lite | Se solicitan explícitamente. | Revisar dedos y expresiones con el modelo corporal ligero. |
+| **Equilibrado** | Full | Se solicitan. | Probar otra precisión corporal si el equipo tiene margen. |
+| **Mayor precisión** | Heavy | Se solicitan. | Comparar resultados en equipos capaces; requiere más procesamiento. |
+
+**Modo baile** es el juego. **Baile y saltos · Auto** es un perfil de seguimiento del estudio. Al entrar al juego se utiliza Pose Lite y se pausan manos y rostro, aunque el perfil del estudio fuera otro. Al salir se restaura el perfil seleccionado.
+
+Cambiar de Lite a Full o Heavy no añade más puntos: los tres modelos corporales producen **33 puntos**. Puede cambiar la calidad de la estimación y su coste.
+
+### Otros controles
+
+| Control | Para qué sirve |
+| --- | --- |
+| **Suavizado** | Reduce vibración entre medidas. Un valor menor da una respuesta más directa y puede mostrar más ruido. |
+| **Sensibilidad Alta** | Ajusta umbrales del detector y del seguimiento; no recupera con certeza partes ocultas. |
+| **Gestos** | Ajusta la intensidad de las expresiones del robot. |
+| **Puntos / Malla facial** | Muestra las medidas disponibles sobre la imagen. |
+| **Esqueleto / Malla 3D** | Ayuda a inspeccionar huesos y geometría del robot. |
+| **Frente / Espalda / Rostro / Mano** | Cambia el encuadre de la escena. También puedes arrastrar para girar y usar la rueda para acercar. |
+| **Centrar postura** | Ajusta la referencia del movimiento. |
+| **Recuperar seguimiento** | Reinicia la selección del cuerpo para volver a fijar una persona. |
+| **Calibrar suelo / Calibrar rostro** | Toma nuevas referencias para saltos o expresiones. |
+| **Copiar diagnóstico** | Reúne tasas, tiempos, procesador elegido, perfil y datos técnicos del navegador. |
+
+## Demo de baile
+
+Abre **Modo baile** o entra con `?modo=baile`. La rutina **Pulso Samurái** dura aproximadamente **35 segundos: 64 pulsos a 112 BPM**, con ocho tipos de movimiento distribuidos en 16 secuencias.
+
+### Cómo jugar
+
+1. Usa **Ver coreografía** para observar al guía sin encender la cámara. Este ensayo no suma puntos.
+2. Pulsa **Jugar con cámara**, o **Jugar ahora** durante el ensayo.
+3. Muestra el cuerpo y espera una postura estable. Tras una cuenta atrás de cuatro pulsos empieza la ronda.
+4. Copia al guía como en un espejo. Los indicadores muestran el movimiento actual y los siguientes.
+5. Revisa puntos, combo y estrellas al terminar. Puedes pausar, continuar o volver al estudio.
+
+La música es una base original generada con **Web Audio** en el navegador. El control **Sonido** permite jugar en silencio. La demo no descarga canciones comerciales y no es un producto oficial de Just Dance.
+
+### Cómo se calcula la puntuación
+
+El juego compara las direcciones de los brazos, la inclinación del torso y los ángulos de las rodillas con la coreografía. Las sentadillas dan más peso a las rodillas. Usa el instante de captura de cada medida, un margen de reacción y una sola evaluación por pulso, con un máximo teórico de **10.000 puntos**.
+
+Una postura parcial reduce la cobertura y los puntos. Sin muestras válidas no se inventan aciertos. **Los dedos, las expresiones, el contador de saltos y la posición exacta de los pies no puntúan en esta primera rutina.**
+
+Si se pierde el cuerpo durante más de un segundo, se pausan reloj y música. El regreso necesita varias muestras estables y otra cuenta atrás. Ocultar la pestaña también pausa la ronda. Una pausa manual requiere continuar con el botón.
+
+El guía y el jugador comparten geometría y un único renderer 3D. El juego utiliza únicamente el detector corporal Lite para reducir la carga. Todavía no incluye cuentas, clasificación en línea, multijugador ni importación automática de canciones.
+
+## Cómo funciona
+
+```mermaid
+flowchart TD
+    A[Cámara del navegador] --> B[Selección de fotogramas]
+    B --> C[Workers de MediaPipe]
+    C --> D[Puntos corporales y detalles]
+    D --> E[Continuidad de una persona]
+    E --> F[Retargeting y filtros]
+    F --> G[Límites articulares y esqueleto]
+    G --> H[Robot animado con Three.js]
+    F --> I[Comparación con la coreografía]
+    J[Reloj del juego] --> I
+    J --> K[Guía y música]
+```
+
+1. **Captura:** el navegador obtiene imágenes con permiso del usuario. La imagen se refleja para mostrarla, mientras el seguimiento mantiene una convención coherente de lados.
+2. **Detección:** workers separados ejecutan cuerpo, manos y rostro según el perfil. Un worker realiza cálculo fuera del hilo principal; no significa que tenga una GPU exclusiva.
+3. **Continuidad:** `PersonLock` compara posición, escala y una referencia temporal del color de la ropa. Los detalles deben corresponder al cuerpo fijado.
+4. **Retargeting:** `Retargeter` transforma las medidas humanas en direcciones, giros y estados que entiende el robot. Valida confianza, sincroniza detalles y filtra cambios bruscos.
+5. **Resolución del movimiento:** brazos, piernas y manos traducen esos objetivos a articulaciones con restricciones y longitudes constantes.
+6. **Animación:** Three.js actualiza el esqueleto y dibuja la malla entre muestras del detector. El juego, si está activo, compara además las medidas con su guía.
+
+### Puntos, huesos y vértices son cosas distintas
+
+| Concepto | En este proyecto |
+| --- | --- |
+| **Puntos detectados** | Hasta 33 corporales, 21 por mano y 478 faciales, según los detectores activos y lo visible. Son estimaciones a partir de la imagen. |
+| **Huesos del robot** | 64 controles jerárquicos que animan el modelo. No son 64 mediciones de la cámara. |
+| **Vértices de la malla** | Dan forma a la armadura y reciben pesos para seguir los huesos. Más vértices no mejoran la detección. |
+
+Una cámara común no mide directamente la profundidad como un sensor dedicado. Las coordenadas 3D de MediaPipe son estimaciones. El código utiliza las coordenadas corporales del modelo y trata por separado las coordenadas normalizadas de imagen; no se deben mezclar sus unidades al calcular distancias.
+
+## Esqueleto y movimiento del robot
+
+### Jerarquía y armadura
+
+[rig.js](src/rig.js) construye una jerarquía de pelvis, columna, pecho, cuello, cabeza, clavículas, brazos, manos, piernas y pies. La malla se enlaza mediante **SkinnedMesh**: cada vértice sigue uno o varios huesos según sus pesos.
+
+Una muñeca es hija del antebrazo, y este es hijo del brazo. Esa relación conserva la conexión de las piezas al moverlas. Las placas de armadura siguen sus articulaciones; la flexión del torso se reparte entre abdomen y pecho. Las placas laterales de la cadera acompañan los muslos.
+
+### Brazos, manos y contacto entre palmas
+
+Los brazos separan movimiento de hombro, flexión de codo, giro del antebrazo y flexión de muñeca. El codo funciona como bisagra con un máximo de 155°. La muñeca tiene límites combinados de flexión y desviación lateral, además de velocidad acotada.
+
+Las manos mantienen proporciones fijas. Los dedos largos usan bisagras y el pulgar tiene articulaciones para oponerse sobre la palma. La clasificación de un puño puede ayudar a cerrar falanges que la propia mano oculta. Las asignaciones ambiguas o duplicadas no deben mover ambas manos con una misma detección.
+
+Al acercar las manos, el robot ajusta el alcance mediante **cinemática inversa**: busca una posición compatible con dos segmentos de longitud fija. Para la postura de oración exige también evidencia de dedos hacia arriba o palmas detalladas enfrentadas. Compensa las proporciones del robot y vuelve gradualmente al movimiento normal al separar las manos. Sin detalle de manos, la orientación de oración es una aproximación corporal.
+
+### Piernas, caderas y saltos
+
+La pelvis tiene giro y balanceo propios; mover los hombros no obliga a girar todo el robot. Rodillas y tobillos tienen restricciones para evitar inversiones. El eje de rodilla conserva continuidad al levantar la pierna por encima de la cadera; con una flexión clara sigue el plano observado de la pierna para resistir ruido en los puntos de los pies.
+
+Los tobillos se resuelven respecto a la espinilla. Ante una pérdida breve mantienen su orientación local. El apoyo considera las suelas y las rodilleras para reducir el hundimiento al arrodillarse. Estas restricciones ayudan al modelo, pero no convierten una medida incorrecta en una observación real.
+
+El detector de saltos compara pelvis y pies con un suelo calibrado. Distingue el salto de una sentadilla, ponerse de puntillas o levantar una sola pierna. Puede conservar altura brevemente si se ocultan los pies y después reducirla gradualmente; no es una medición física certificada de altura.
+
+### Pérdidas y regreso del usuario
+
+Si otra persona tapa al usuario, se filtran medidas incompatibles y se espera su regreso. Tras una ausencia real, varias muestras consistentes permiten recuperar al usuario en otra posición o distancia sin apagar la cámara. Se recalibran referencias corporales y suelo, se descartan detalles antiguos y se conserva el contador de saltos.
+
+Este mecanismo es continuidad visual, **no reconocimiento de identidad**. Personas con apariencia parecida, cruces y oclusiones prolongadas siguen siendo situaciones difíciles.
+
+## Rendimiento y CPU/GPU
+
+**El seguimiento se calcula en el dispositivo de cada visitante.** El servidor entrega HTML, JavaScript, modelos y recursos; no procesa las imágenes de las cámaras. Por eso la misma web puede funcionar bien en un equipo y lentamente en otro. La red afecta sobre todo a la carga de recursos; una carga completada no garantiza inferencia rápida.
+
+Cada detector compara CPU y GPU cuando el navegador lo permite: usa los mismos seis fotogramas, descarta dos de calentamiento y compara los tiempos restantes junto con la disponibilidad de detecciones. Si los resultados son similares, prefiere GPU para liberar CPU. Conserva una opción y cierra la otra. Si GPU falla, intenta usar CPU. Las comparaciones se escalonan; manos y rostro pueden repetir una comparación al aparecer si no se encontraron inicialmente.
+
+Otras medidas implementadas:
+
+- Prioridad al cuerpo, con un máximo de cuerpo y un detalle simultáneos; en CPU con pocos núcleos se reducen los turnos concurrentes.
+- Sin cola de fotogramas antiguos y sin procesar una imagen repetida mientras el detector está ocupado.
+- Inicio escalonado de modelos y búsquedas de manos/rostro menos frecuentes cuando no aparecen.
+- Auto mide primero el cuerpo; habilita, espacia o descarga detalles según la carga. En esa sesión no los recarga continuamente: cambiar de perfil o reiniciar la cámara repite la evaluación.
+- Resolución de dibujo adaptable, límite de 30 o 60 FPS e iluminación más sencilla en modos económicos.
+- Geometría indexada y compartida, y encuadre mediante envolventes de huesos para evitar transformar toda la armadura en cada cuadro.
+- Procesamiento pausado cuando la pestaña está oculta.
+
+### Leer el diagnóstico
+
+| Dato | Significado |
+| --- | --- |
+| **FPS 3D** | Cuántas imágenes del robot se dibujan por segundo. |
+| **Cuerpo · muestras/s** | Cuántas medidas corporales nuevas llegan por segundo. |
+| **Respuesta · ms** | Latencia de procesamiento y entrega de una medida corporal. |
+| **CPU / GPU** | Opción elegida para cada detector; puede ser distinta entre cuerpo, manos y rostro. |
+| **Resolución 3D** | Escala de dibujo que se reduce para aliviar carga. |
+
+Un robot dibujado a 60 FPS puede recibir solo cinco medidas nuevas por segundo. La interpolación suaviza la transición, pero no recupera los movimientos que la cámara o el detector no captaron.
+
+Si va lento, prueba **Equipo lento · solo cuerpo**, cierra otras aplicaciones que usen cámara/GPU y compara el diagnóstico. Para investigar un problema entre equipos hacen falta esas medidas: las pruebas automáticas no demuestran que todos los dispositivos rindan igual.
+
+## Organización del código
+
+El código activo se organiza en **tres carpetas principales**:
+
+```text
+Robot-Lagan/
+├── index.html                 # Pantalla y controles
+├── iniciar_web.cmd            # Lanzador para Windows
+├── README.md                  # Esta guía
+├── src/                       # Interfaz, seguimiento y animación
+├── public/                    # Robot, worker y recursos estáticos
+└── tools/                     # Dependencias, configuración, pruebas y despliegue
+```
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| [src/main.js](src/main.js) | Coordina cámara, workers, interfaz y ciclo de actualización. |
+| [src/camera.js](src/camera.js) | Restricciones de cámara, zoom y encuadre del video. |
+| [public/vision.worker.js](public/vision.worker.js) | Ejecuta MediaPipe y compara CPU/GPU. |
+| [src/person.js](src/person.js) | Mantiene la persona seleccionada y filtra detalles ajenos. |
+| [src/tracking.js](src/tracking.js) | Convierte las medidas en movimiento, filtra y mantiene referencias. |
+| [src/rig.js](src/rig.js) | Construye huesos, piezas, pesos y manos del robot. |
+| [public/robot.json](public/robot.json) | Geometría base utilizada para construir el robot. |
+| [src/avatar.js](src/avatar.js) | Escena, expresiones, animación, vistas y apoyo sobre el suelo. |
+| [src/arms.js](src/arms.js) | Hombros, codos, muñecas y alcance de los brazos. |
+| [src/legs.js](src/legs.js) | Flexión de rodillas y orientación de piernas y tobillos. |
+| [src/hands.js](src/hands.js) | Asociación de manos, orientación, dedos y estabilidad. |
+| [src/jump.js](src/jump.js) | Calibración del suelo, despegue y aterrizaje. |
+| [src/performance.js](src/performance.js) | Planificación, perfiles, adaptación y diagnóstico. |
+| [src/dance.js](src/dance.js) | Coreografía, comparación de posturas y estados de la partida. |
+| [src/dance-coach.js](src/dance-coach.js) | Guía animado con geometría compartida. |
+| [src/dance-audio.js](src/dance-audio.js) | Música procedural y sincronización. |
+| [src/dance-ui.js](src/dance-ui.js) | Controles e indicadores del juego. |
+| [src/style.css](src/style.css) | Diseño del estudio, juego y adaptación móvil. |
+| [tools/tests/](tools/tests/) | Pruebas unitarias y secuencias de regresión. |
+| [tools/serve.mjs](tools/serve.mjs) | Servidor estático de producción y endpoint de salud. |
+
+`tools/node_modules/`, `tools/dist/` y `tools/.cache/` contienen dependencias, compilaciones y resultados temporales. `public/vendor/` y `public/models/` se generan durante la preparación. No se editan como código fuente ni se suben a Git.
+
+Las copias antiguas que puedan existir localmente en `tools/referencia-python.zip` y `tools/pendiente-de-limpieza/` no se publican en el repositorio y no son necesarias para ejecutar la web.
+
+## Aprender y ampliar el proyecto
+
+### Una ruta de lectura
+
+1. Empieza por `index.html` y `src/main.js`: identifica qué cambia al encender la cámara y qué ocurre en cada actualización.
+2. Sigue un fotograma hasta `public/vision.worker.js`: observa qué datos devuelve el detector y cómo se elige CPU/GPU.
+3. Lee `src/person.js` y `src/tracking.js`: distingue un punto medido de una referencia conservada durante una oclusión.
+4. Activa **Esqueleto** y estudia `src/rig.js`, `src/arms.js` y `src/legs.js`: relaciona jerarquía, ejes locales y límites con lo que ves.
+5. Lee `src/dance.js` junto a sus pruebas: separa el reloj de la partida, la postura objetivo y la evaluación del jugador.
+
+### Ejercicios propuestos
+
+| Ejercicio | Dónde empezar | Qué comprobar |
+| --- | --- | --- |
+| Cambiar colores o placas de armadura | `src/rig.js` | Que huesos y pesos sigan conectando las piezas. |
+| Añadir un paso a la coreografía | `MOVES`, `ORDER` y `danceMotion` en `src/dance.js` | Guía, duración, puntuación y pruebas usan el mismo reloj. |
+| Comparar filtros de movimiento | `src/tracking.js` | Equilibrio entre vibración y retraso con entradas repetibles. |
+| Estudiar la cinemática inversa | `src/arms.js` y `tools/tests/contacts.test.mjs` | Que el alcance no cambie la longitud de los brazos. |
+| Medir un equipo lento | `src/performance.js` y **Copiar diagnóstico** | Distinguir coste del detector de coste de dibujo. |
+
+Para contribuir, describe un caso concreto, intenta reproducirlo, cambia el módulo responsable y ejecuta las pruebas relacionadas. En un reporte de seguimiento ayuda indicar navegador, perfil, encuadre, movimiento esperado y diagnóstico. No hace falta publicar videos personales para informar un fallo.
+
+## Pruebas
+
+Desde `tools/`:
+
+```bash
+npm test
+npm run build
+```
+
+En PowerShell puedes usar `npm.cmd` en lugar de `npm`. Las pruebas unitarias cubren seguimiento, selección y regreso de la persona, saltos, caderas, brazos, manos, rodillas, contactos, rendimiento y estados/puntuación del baile.
+
+### Pruebas de navegador
+
+Requieren **Google Chrome instalado**. Con el servidor de desarrollo en 5173 y desde otra terminal en `tools/`:
+
+```bash
+npm run test:browser
+node check-motion.mjs http://127.0.0.1:5173/
+```
+
+Para las comprobaciones de contactos, piernas y baile, inicia una instancia de desarrollo en 5181:
+
+```bash
+npm run dev -- --port 5181
+```
+
+Y en otra terminal, también desde `tools/`:
+
+```bash
+node check-contacts.mjs http://127.0.0.1:5181/
+node check-lower-body.mjs http://127.0.0.1:5181/
+node check-dance-stage.mjs http://127.0.0.1:5181/
+node check-dance.mjs http://127.0.0.1:5181/
+```
+
+| Tipo de comprobación | Qué demuestra | Qué no demuestra |
+| --- | --- | --- |
+| Unitarias | Reglas y regresiones con entradas controladas. | Precisión de la cámara en una habitación real. |
+| Detector real con imágenes de prueba | Carga de modelos y resultados en imágenes concretas. | Rendimiento con todos los usuarios, luces o cámaras. |
+| Rig con movimientos sintéticos | Continuidad, longitudes, bisagras, palmas juntas y apoyo. | Que MediaPipe haya medido esos movimientos reales. |
+| Ronda de baile simulada | Cuenta atrás, puntos, pausa, pérdida/regreso y resultado. | La puntuación de una persona real o los FPS de sus amigos. |
+
+Las pruebas de cámara simulada no activan tu cámara física. Algunas descargan imágenes oficiales temporales; los scripts de preparación las eliminan al terminar. Los resultados y capturas de inspección se guardan en `tools/.cache/`. Las comprobaciones que importan módulos de `src/` necesitan el servidor de desarrollo, no solo la compilación pública.
+
+## Compilar y desplegar
+
+### Probar la versión de producción
+
+Desde `tools/`, después de instalar y preparar los recursos:
+
+```bash
+npm run build
+npm start
+```
+
+La compilación se genera en `tools/dist/`. El servidor de producción escucha por defecto en **http://127.0.0.1:8090/**. Para comprobar su salud:
+
+```bash
+curl http://127.0.0.1:8090/healthz
+```
+
+Debe responder `{"status":"ok"}`. En PowerShell puedes usar `curl.exe`.
+
+El servidor publica exclusivamente `tools/dist/`, no la carpeta de trabajo. Sirve los archivos WASM con su tipo adecuado y utiliza caché prolongada para recursos con hash. La variable `SAMURAI_PORT` permite cambiar el puerto; si lo cambias, actualiza también el destino del túnel.
+
+### Servicio Linux incluido
+
+El despliegue actual usa un servicio de usuario systemd y Cloudflare Tunnel:
+
+```text
+Navegador → HTTPS de Cloudflare → túnel → 127.0.0.1:8090 → tools/dist/
+```
+
+**Antes de reutilizar el servicio en otro equipo**, revisa [tools/samurai-web.service](tools/samurai-web.service): espera el proyecto en `~/Documents/robot` y Node en `~/.local/share/robot-node/current/bin/node`. Ajusta `WorkingDirectory` y `ExecStart` a tu instalación. [tools/serve.mjs](tools/serve.mjs) permite los hosts `localhost`, `127.0.0.1` y `lagan.nicolas16.life`; añade tu dominio si publicas una copia con otro nombre.
+
+Con el código ya presente en el servidor y esas rutas correctas:
+
+```bash
+cd ~/Documents/robot/tools
+npm ci --ignore-scripts
+npm run prepare
+cd ..
+bash tools/deploy_linux.sh
+```
+
+El script ejecuta pruebas, compila, instala el servicio de usuario, lo habilita y reinicia, y comprueba `/healthz`. No copia el proyecto desde otro equipo ni crea un túnel de Cloudflare. Si se indica que falta persistencia, el administrador puede habilitarla con `sudo loginctl enable-linger "$USER"` para que el servicio arranque sin una sesión abierta.
+
+En la ruta publicada del túnel actual:
+
+| Campo | Valor |
+| --- | --- |
+| Hostname | `lagan.nicolas16.life` |
+| Service URL | **`http://localhost:8090`** |
+| Path | Vacío |
+
+El HTTPS público permite solicitar la cámara. Para desarrollo se usa `localhost` o `127.0.0.1`; abrir una dirección HTTP de la red local no equivale a esos contextos de cámara. El túnel debe permanecer conectado y la web debe estar activa.
+
+Comandos de diagnóstico en el servidor:
+
+```bash
+systemctl --user is-active samurai-web.service
+journalctl --user -u samurai-web.service -n 40 --no-pager
+curl http://127.0.0.1:8090/healthz
+systemctl is-active cloudflared.service
+```
+
+El último comando aplica si `cloudflared` está instalado como servicio de sistema. Tener un túnel conectado y tener el servidor web funcionando son dos comprobaciones diferentes.
+
+## Problemas frecuentes
+
+| Problema | Qué revisar |
+| --- | --- |
+| No encuentra `package.json` | Ejecuta los comandos npm desde `tools/`, no desde la raíz. |
+| Modelos o WASM no cargan | Ejecuta `npm run prepare` desde `tools/`. Si usas producción, vuelve a compilar después. |
+| El puerto 5173 está ocupado | Cierra la instancia anterior o usa `npm run dev -- --port 5181` y abre ese puerto. |
+| No aparece la cámara | Permiso, cámara seleccionada, otro programa usándola y acceso por localhost/HTTPS. |
+| La cámara parece tener mucho zoom | Usa **Reducir zoom** si está disponible y revisa distancia e inclinación física de la cámara. |
+| Solo detecta el torso | Comprueba que caderas, rodillas y pies estén dentro de la imagen, con suficiente luz y tamaño. |
+| No mueve dedos o cabeza | Sal del juego al estudio y prueba **Rápido**. Auto y Equipo lento pueden pausar manos/rostro. |
+| Pierde manos al juntarlas | Las oclusiones y el cruce de dedos siguen siendo difíciles; muestra las palmas y revisa el detector en una vista cercana. |
+| No cuenta los saltos | Cámara fija, suelo calibrado, ambas caderas y pies visibles y margen sobre la cabeza. |
+| Al regresar no recupera el cuerpo | Espera varias muestras estables. Si no se recupera, usa **Recuperar seguimiento**. |
+| En otro computador va lento | Prueba solo cuerpo y compara muestras/s, latencia y FPS 3D con **Copiar diagnóstico**. |
+| Cloudflare muestra 1033 | Revisa la conexión del túnel y el proceso `cloudflared`; comprueba aparte la salud de la web en 8090. |
+| El juego no suena | Activa **Sonido** e inicia desde un botón; revisa también el volumen o silencio de la pestaña. |
+
+## Privacidad, límites y referencias
+
+### Qué ocurre con la cámara
+
+Las imágenes se procesan en el navegador. El código de la aplicación no las envía al servidor, no las graba y no implementa cuentas ni una base de datos de usuarios. La música también se genera en el equipo.
+
+Esto no elimina las peticiones de red habituales para cargar la web y sus recursos. **Copiar diagnóstico** recoge datos técnicos —navegador, tasas, tiempos, perfil y resolución—, sin copiar imágenes, coordenadas del cuerpo ni identificadores de cámara.
+
+### Límites actuales
+
+La webcam tiene dificultades con profundidad, desenfoque, contraluz, partes ocultas y personas pequeñas en la imagen. Golpes hacia la cámara, pies al arrodillarse y manos superpuestas pueden seguir produciendo errores. Los filtros, las referencias breves y los límites del robot reducen inestabilidad; no sustituyen una observación que falta.
+
+El seguimiento está pensado para una persona. El robot no tiene las mismas proporciones que cada usuario y sus articulaciones tienen límites propios. Las expresiones se adaptan a una cara estilizada. El juego es una demo educativa con una rutina, no una evaluación profesional de baile ni un sistema de captura de movimiento de precisión.
+
+### Tecnologías y fuentes para estudiar
+
+Las versiones del proyecto se fijan en [tools/package.json](tools/package.json) y su archivo de bloqueo: JavaScript con módulos ES, MediaPipe Tasks Vision, Three.js, Vite y Playwright. El navegador aporta Web Workers, WebGL y Web Audio; Node.js sirve la compilación de producción.
+
+- [MediaPipe Pose Landmarker para web](https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker/web_js)
+- [MediaPipe Gesture Recognizer para web](https://ai.google.dev/edge/mediapipe/solutions/vision/gesture_recognizer/web_js)
+- [MediaPipe Face Landmarker para web](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/web_js)
+- [Documentación de Three.js](https://threejs.org/docs/)
+- [Documentación de Vite](https://vite.dev/guide/)
+- [Documentación de Playwright](https://playwright.dev/docs/intro)
+
+El diseño visual toma como referencia el samurái de Gurren Lagann. Este es un proyecto educativo independiente, sin afiliación oficial. Los modelos, bibliotecas y referencias visuales pertenecen a sus respectivos autores. El repositorio todavía no incluye un archivo `LICENSE` propio.
+
+**Autor:** [Nicolas1609-1](https://github.com/Nicolas1609-1). El propósito de esta guía es que otras personas puedan ejecutar el proyecto, entender sus decisiones y usarlo como referencia de aprendizaje para sus propios experimentos.
